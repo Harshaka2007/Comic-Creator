@@ -3,7 +3,8 @@ import { PanelData } from '../types';
 import { 
   RefreshCw, Download, Pencil, ChevronDown, 
   Loader2, Image as ImageIcon, FileImage, 
-  LayoutTemplate, Grid2X2, RectangleVertical, Columns3 
+  LayoutTemplate, Grid2X2, RectangleVertical, Columns3,
+  StretchHorizontal, Layers
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
@@ -14,7 +15,7 @@ interface ComicCanvasProps {
   onEditScript: () => void;
 }
 
-type LayoutMode = 'grid' | 'vertical' | 'wide';
+type LayoutMode = 'grid' | 'vertical' | 'wide' | 'dynamic' | 'cinematic';
 
 export const ComicCanvas: React.FC<ComicCanvasProps> = ({ panels, title, onRegeneratePanel, onEditScript }) => {
   const comicRef = useRef<HTMLDivElement>(null);
@@ -63,6 +64,10 @@ export const ComicCanvas: React.FC<ComicCanvasProps> = ({ panels, title, onRegen
         return "grid-cols-1 max-w-xl mx-auto";
       case 'wide':
         return "grid-cols-1 md:grid-cols-3";
+      case 'cinematic':
+        return "grid-cols-1 max-w-4xl mx-auto";
+      case 'dynamic':
+        return "grid-cols-1 md:grid-cols-2";
       case 'grid':
       default:
         // Smart grid: if 5 panels, make first one span 2 cols to look nicer
@@ -70,11 +75,22 @@ export const ComicCanvas: React.FC<ComicCanvasProps> = ({ panels, title, onRegen
     }
   };
 
-  // Helper for uneven grids (5 panels in 2 cols)
+  // Helper for uneven grids or special layouts
   const getPanelClasses = (index: number, total: number) => {
+    if (layout === 'cinematic') {
+      return "aspect-[21/9]";
+    }
+    
+    if (layout === 'dynamic') {
+      // Pattern: Big (2), Small (1), Small (1) repeating
+      if (index % 3 === 0) return "md:col-span-2 aspect-[2/1]";
+      return "aspect-square";
+    }
+
     if (layout === 'grid' && total % 2 !== 0 && index === 0) {
        return "md:col-span-2 aspect-[2/1]"; 
     }
+    
     return "aspect-square";
   };
   
@@ -104,7 +120,7 @@ export const ComicCanvas: React.FC<ComicCanvasProps> = ({ panels, title, onRegen
              {showLayoutMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowLayoutMenu(false)}></div>
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="absolute right-0 top-full mt-2 w-64 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-200">
                     <div className="px-2 py-1 text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Templates</div>
                     
                     <button 
@@ -114,7 +130,18 @@ export const ComicCanvas: React.FC<ComicCanvasProps> = ({ panels, title, onRegen
                        <Grid2X2 className="w-4 h-4" />
                        <div className="flex flex-col">
                           <span>Classic Grid</span>
-                          <span className="text-[10px] opacity-70">2 Columns</span>
+                          <span className="text-[10px] opacity-70">2 Column Standard</span>
+                       </div>
+                    </button>
+
+                    <button 
+                      onClick={() => setLayout('dynamic')}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 ${layout === 'dynamic' ? 'bg-purple-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
+                    >
+                       <Layers className="w-4 h-4" />
+                       <div className="flex flex-col">
+                          <span>Dynamic Flow</span>
+                          <span className="text-[10px] opacity-70">Mixed Sizes</span>
                        </div>
                     </button>
                     
@@ -137,6 +164,17 @@ export const ComicCanvas: React.FC<ComicCanvasProps> = ({ panels, title, onRegen
                        <div className="flex flex-col">
                           <span>Storyboard</span>
                           <span className="text-[10px] opacity-70">3 Columns</span>
+                       </div>
+                    </button>
+
+                    <button 
+                      onClick={() => setLayout('cinematic')}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 ${layout === 'cinematic' ? 'bg-purple-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
+                    >
+                       <StretchHorizontal className="w-4 h-4" />
+                       <div className="flex flex-col">
+                          <span>Cinematic</span>
+                          <span className="text-[10px] opacity-70">Widescreen</span>
                        </div>
                     </button>
                   </div>
@@ -261,8 +299,11 @@ export const ComicCanvas: React.FC<ComicCanvasProps> = ({ panels, title, onRegen
         </div>
         
         {/* Comic Footer */}
-        <div className="mt-8 text-center border-t-2 border-black pt-4">
-            <p className="font-comic text-black/50 text-sm">CREATED WITH INKFLOW & GEMINI</p>
+        <div className="mt-8 flex justify-between items-end border-t-2 border-black pt-4">
+            <p className="font-comic text-black/50 text-xs md:text-sm">CREATED WITH INKFLOW & GEMINI</p>
+            <div className="font-comic text-black font-bold text-lg border-2 border-black px-3 py-1 bg-white shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+              1
+            </div>
         </div>
       </div>
     </div>

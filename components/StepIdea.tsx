@@ -12,12 +12,20 @@ export const StepIdea: React.FC<StepIdeaProps> = ({ onGenerate, isLoading }) => 
   const [count, setCount] = useState(4);
 
   const styles = [
-    "American modern comic book style",
-    "Japanese Manga style, black and white",
-    "Noir detective style, dark shadows",
-    "Pop Art style, vintage 1950s",
-    "Franco-Belgian comic style (Tintin-esque)",
-    "Cyberpunk neon futuristic style"
+    "American Modern Comic",
+    "Japanese Manga (Black & White)",
+    "Webtoon / Manhwa (Full Color)",
+    "Franco-Belgian (Ligne Claire)",
+    "Noir Detective (High Contrast)",
+    "Cyberpunk / Synthwave Neon",
+    "Studio Ghibli (Painterly)",
+    "Pixar 3D Render Style",
+    "Pixel Art (Retro Video Game)",
+    "Watercolor Storybook",
+    "Pop Art (Vintage 1950s)",
+    "Dark Fantasy / Eldritch",
+    "Claymation / Stop Motion",
+    "Ukiyo-e Woodblock Print"
   ];
 
   return (
@@ -67,7 +75,7 @@ export const StepIdea: React.FC<StepIdeaProps> = ({ onGenerate, isLoading }) => 
                 <input
                   type="range"
                   min="3"
-                  max="6"
+                  max="10"
                   value={count}
                   onChange={(e) => setCount(parseInt(e.target.value))}
                   className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
