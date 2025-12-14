@@ -1,0 +1,5 @@
+{
+  "name": "Comic Creator",
+  "description": "An AI-powered comic book creator that transforms your ideas into fully scripted and illustrated comic strips using Gemini.",
+  "requestFramePermissions": []
+}
