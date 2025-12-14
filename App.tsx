@@ -35,19 +35,23 @@ export default function App() {
   const handleConfirmScript = async () => {
     setAppState(AppState.VISUALIZATION);
     
-    // Trigger generation for each panel one by one to not hit rate limits too hard? 
-    // Gemini handles parallel well usually, but let's do a map.
-    
     // Set all to generating first
     setScript(prev => ({
         ...prev,
         panels: prev.panels.map(p => ({ ...p, isGenerating: true }))
     }));
 
-    // Launch async tasks
-    script.panels.forEach(panel => {
-        generateImageForPanel(panel.id, panel.description);
-    });
+    // Process sequentially to avoid 429 Rate Limits
+    const panelsToGenerate = script.panels;
+    
+    for (const panel of panelsToGenerate) {
+        await generateImageForPanel(panel.id, panel.description);
+        // Add a delay between requests (e.g., 5 seconds) to respect rate limits
+        // This is crucial for avoiding RESOURCE_EXHAUSTED errors
+        if (panel.id !== panelsToGenerate[panelsToGenerate.length - 1].id) {
+            await new Promise(resolve => setTimeout(resolve, 5000));
+        }
+    }
   };
 
   const generateImageForPanel = async (id: number, description: string) => {
@@ -64,7 +68,7 @@ export default function App() {
         setScript(prev => ({
             ...prev,
             panels: prev.panels.map(p => 
-                p.id === id ? { ...p, isGenerating: false } : p // Just stop spinner, maybe keep old image or show error state
+                p.id === id ? { ...p, isGenerating: false } : p // Stop spinner on error
             )
         }));
     }

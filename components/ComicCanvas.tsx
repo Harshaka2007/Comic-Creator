@@ -23,6 +23,25 @@ export const ComicCanvas: React.FC<ComicCanvasProps> = ({ panels, title, onRegen
   const [showLayoutMenu, setShowLayoutMenu] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [layout, setLayout] = useState<LayoutMode>('grid');
+  
+  // Customizable Footer State
+  const [pageNumber, setPageNumber] = useState(1);
+  const [footerText, setFooterText] = useState("COMIC STORY");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            if (e.target?.result) {
+                setLogoUrl(e.target.result as string);
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+  };
 
   const handleSave = async (format: 'png' | 'jpeg') => {
     if (!comicRef.current) return;
@@ -299,10 +318,46 @@ export const ComicCanvas: React.FC<ComicCanvasProps> = ({ panels, title, onRegen
         </div>
         
         {/* Comic Footer */}
-        <div className="mt-8 flex justify-between items-end border-t-2 border-black pt-4">
-            <p className="font-comic text-black/50 text-xs md:text-sm">CREATED WITH INKFLOW & GEMINI</p>
-            <div className="font-comic text-black font-bold text-lg border-2 border-black px-3 py-1 bg-white shadow-[2px_2px_0px_rgba(0,0,0,1)]">
-              1
+        <div className="mt-8 flex justify-between items-end border-t-2 border-black pt-4 relative z-20">
+            <div className="flex items-center gap-4 flex-1">
+                {/* Logo Uploader */}
+                <div 
+                    className="relative w-12 h-12 flex-shrink-0 cursor-pointer border-2 border-dashed border-slate-300 hover:border-slate-500 rounded-lg flex items-center justify-center overflow-hidden group bg-transparent transition-colors"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Upload Logo"
+                >
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        accept="image/*" 
+                        onChange={handleLogoUpload}
+                    />
+                    {logoUrl ? (
+                        <img src={logoUrl} className="w-full h-full object-contain mix-blend-multiply" alt="Logo" />
+                    ) : (
+                        <ImageIcon className="w-4 h-4 text-slate-300 group-hover:text-slate-500" />
+                    )}
+                </div>
+
+                <input 
+                  value={footerText}
+                  onChange={(e) => setFooterText(e.target.value)}
+                  className="font-comic text-black/50 text-xs md:text-sm bg-transparent border-none focus:ring-0 focus:outline-none focus:text-black uppercase tracking-wide w-full"
+                  placeholder="ENTER FOOTER TEXT..."
+                />
+            </div>
+            
+            <div className="flex items-center gap-1 font-comic text-black font-bold text-lg border-2 border-black px-2 py-1 bg-white shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+              <span className="text-xs text-slate-400 select-none mr-1">PG.</span>
+              <input 
+                type="number"
+                min="1"
+                max="999"
+                value={pageNumber}
+                onChange={(e) => setPageNumber(parseInt(e.target.value) || 1)}
+                className="w-12 text-center bg-transparent border-none focus:ring-0 focus:outline-none appearance-none p-0 m-0"
+              />
             </div>
         </div>
       </div>
