@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PanelData } from '../types';
-import { ArrowRight, Trash2, Plus, GripVertical } from 'lucide-react';
+import { ArrowRight, GripVertical, Languages, Loader2, Check } from 'lucide-react';
+import { translateScript } from '../services/geminiService';
 
 interface StepScriptProps {
   title: string;
@@ -11,21 +12,68 @@ interface StepScriptProps {
 }
 
 export const StepScript: React.FC<StepScriptProps> = ({ title, panels, onUpdatePanels, onConfirm, onBack }) => {
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [showTranslateMenu, setShowTranslateMenu] = useState(false);
 
   const handleUpdate = (id: number, field: keyof PanelData, value: string) => {
     onUpdatePanels(panels.map(p => p.id === id ? { ...p, [field]: value } : p));
   };
 
+  const handleTranslate = async (language: string) => {
+    setShowTranslateMenu(false);
+    setIsTranslating(true);
+    try {
+      const updatedPanels = await translateScript(panels, language);
+      onUpdatePanels(updatedPanels);
+    } catch (error) {
+      alert(`Failed to translate to ${language}. Please try again.`);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto w-full p-4 animate-in slide-in-from-right-10 duration-500">
-      <div className="flex items-center justify-between mb-6">
-        <button onClick={onBack} className="text-slate-400 hover:text-white transition-colors">
+      <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
+        <button onClick={onBack} className="text-slate-400 hover:text-white transition-colors self-start md:self-auto">
           &larr; Back to Idea
         </button>
+        
         <h2 className="text-2xl font-comic text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 tracking-wide">
           Review Script: {title}
         </h2>
-        <div className="w-20"></div> {/* Spacer */}
+
+        {/* Translation Menu */}
+        <div className="relative self-end md:self-auto">
+          <button 
+            onClick={() => setShowTranslateMenu(!showTranslateMenu)}
+            disabled={isTranslating}
+            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-lg font-semibold text-sm transition-colors border border-slate-700"
+          >
+            {isTranslating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Languages className="w-4 h-4" />}
+            Translate
+          </button>
+
+          {showTranslateMenu && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowTranslateMenu(false)}></div>
+              <div className="absolute right-0 top-full mt-2 w-40 bg-slate-800 border border-slate-700 rounded-xl shadow-xl p-1 z-20">
+                <button 
+                  onClick={() => handleTranslate('English')}
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                >
+                  English
+                </button>
+                <button 
+                  onClick={() => handleTranslate('Sinhala')}
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                >
+                  Sinhala
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="space-y-4 mb-8">

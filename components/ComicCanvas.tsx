@@ -1,10 +1,10 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { PanelData } from '../types';
 import { 
   RefreshCw, Download, Pencil, ChevronDown, 
   Loader2, Image as ImageIcon, FileImage, 
   LayoutTemplate, Grid2X2, RectangleVertical, Columns3,
-  StretchHorizontal, Layers
+  StretchHorizontal, Layers, BookOpen
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
@@ -15,7 +15,7 @@ interface ComicCanvasProps {
   onEditScript: () => void;
 }
 
-type LayoutMode = 'grid' | 'vertical' | 'wide' | 'dynamic' | 'cinematic';
+type LayoutMode = 'grid' | 'vertical' | 'wide' | 'dynamic' | 'cinematic' | 'storybook';
 
 export const ComicCanvas: React.FC<ComicCanvasProps> = ({ panels, title, onRegeneratePanel, onEditScript }) => {
   const comicRef = useRef<HTMLDivElement>(null);
@@ -24,10 +24,23 @@ export const ComicCanvas: React.FC<ComicCanvasProps> = ({ panels, title, onRegen
   const [isSaving, setIsSaving] = useState(false);
   const [layout, setLayout] = useState<LayoutMode>('grid');
   
-  // Customizable Footer State
+  // Customizable Footer State with Persistence
   const [pageNumber, setPageNumber] = useState(1);
-  const [footerText, setFooterText] = useState("COMIC STORY");
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  
+  const [footerText, setFooterText] = useState(() => {
+    if (typeof window !== 'undefined') {
+        return localStorage.getItem('inkflow_footer_text') || "COMIC STORY";
+    }
+    return "COMIC STORY";
+  });
+
+  const [logoUrl, setLogoUrl] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+        return localStorage.getItem('inkflow_logo_url');
+    }
+    return null;
+  });
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -36,11 +49,24 @@ export const ComicCanvas: React.FC<ComicCanvasProps> = ({ panels, title, onRegen
         const reader = new FileReader();
         reader.onload = (e) => {
             if (e.target?.result) {
-                setLogoUrl(e.target.result as string);
+                const result = e.target.result as string;
+                setLogoUrl(result);
+                try {
+                    localStorage.setItem('inkflow_logo_url', result);
+                } catch (error) {
+                    console.error("Image too large to save to local storage", error);
+                    // Still set it in state so they can use it for this session
+                }
             }
         };
         reader.readAsDataURL(file);
     }
+  };
+
+  const handleFooterTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const text = e.target.value;
+      setFooterText(text);
+      localStorage.setItem('inkflow_footer_text', text);
   };
 
   const handleSave = async (format: 'png' | 'jpeg') => {
@@ -87,6 +113,8 @@ export const ComicCanvas: React.FC<ComicCanvasProps> = ({ panels, title, onRegen
         return "grid-cols-1 max-w-4xl mx-auto";
       case 'dynamic':
         return "grid-cols-1 md:grid-cols-2";
+      case 'storybook':
+        return "grid-cols-1 max-w-2xl mx-auto gap-12";
       case 'grid':
       default:
         // Smart grid: if 5 panels, make first one span 2 cols to look nicer
@@ -98,6 +126,10 @@ export const ComicCanvas: React.FC<ComicCanvasProps> = ({ panels, title, onRegen
   const getPanelClasses = (index: number, total: number) => {
     if (layout === 'cinematic') {
       return "aspect-[21/9]";
+    }
+    
+    if (layout === 'storybook') {
+        return "aspect-square shadow-md";
     }
     
     if (layout === 'dynamic') {
@@ -113,6 +145,8 @@ export const ComicCanvas: React.FC<ComicCanvasProps> = ({ panels, title, onRegen
     return "aspect-square";
   };
   
+  const isStorybook = layout === 'storybook';
+
   return (
     <div className="max-w-6xl mx-auto w-full p-4 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
@@ -150,6 +184,17 @@ export const ComicCanvas: React.FC<ComicCanvasProps> = ({ panels, title, onRegen
                        <div className="flex flex-col">
                           <span>Classic Grid</span>
                           <span className="text-[10px] opacity-70">2 Column Standard</span>
+                       </div>
+                    </button>
+                    
+                     <button 
+                      onClick={() => setLayout('storybook')}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 ${layout === 'storybook' ? 'bg-purple-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
+                    >
+                       <BookOpen className="w-4 h-4" />
+                       <div className="flex flex-col">
+                          <span>Storybook</span>
+                          <span className="text-[10px] opacity-70">Text Below Image</span>
                        </div>
                     </button>
 
@@ -249,70 +294,85 @@ export const ComicCanvas: React.FC<ComicCanvasProps> = ({ panels, title, onRegen
         {/* Dynamic Grid Layout */}
         <div className={`grid gap-4 relative z-10 transition-all duration-500 ${getLayoutClasses()}`}>
           {panels.map((panel, idx) => (
-            <div 
-                key={panel.id} 
-                className={`relative group border-4 border-black bg-white shadow-[4px_4px_0px_rgba(0,0,0,1)] overflow-hidden transition-all duration-500 ${getPanelClasses(idx, panels.length)}`}
-            >
-              {/* Image Layer */}
-              <div className="w-full h-full bg-slate-200 flex items-center justify-center relative overflow-hidden">
-                 {panel.imageUrl ? (
-                    <img src={panel.imageUrl} alt={panel.description} className="w-full h-full object-cover" />
-                 ) : (
-                    <div className="text-slate-400 text-center p-4">
-                       {panel.isGenerating ? (
-                          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-slate-800" />
-                       ) : (
-                          <div className="font-comic text-slate-300 text-4xl">?</div>
-                       )}
-                       <p className="text-xs font-mono text-slate-500 mt-2">{panel.isGenerating ? 'Drawing...' : 'Waiting'}</p>
-                    </div>
-                 )}
-                 
-                 {/* Regeneration Overlay (Hover) - Hidden during save */}
-                 {!panel.isGenerating && !isSaving && (
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-30">
-                        <button 
-                            onClick={() => onRegeneratePanel(panel.id)}
-                            className="bg-white text-black px-4 py-2 rounded-full font-bold flex items-center gap-2 hover:scale-105 transition-transform"
-                        >
-                            <RefreshCw className="w-4 h-4" /> Redraw
-                        </button>
-                    </div>
-                 )}
-              </div>
+            <div key={panel.id} className="flex flex-col gap-4">
+                <div 
+                    className={`relative group border-4 border-black bg-white shadow-[4px_4px_0px_rgba(0,0,0,1)] overflow-hidden transition-all duration-500 ${getPanelClasses(idx, panels.length)}`}
+                >
+                {/* Image Layer */}
+                <div className="w-full h-full bg-slate-200 flex items-center justify-center relative overflow-hidden">
+                    {panel.imageUrl ? (
+                        <img src={panel.imageUrl} alt={panel.description} className="w-full h-full object-cover" />
+                    ) : (
+                        <div className="text-slate-400 text-center p-4">
+                        {panel.isGenerating ? (
+                            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-slate-800" />
+                        ) : (
+                            <div className="font-comic text-slate-300 text-4xl">?</div>
+                        )}
+                        <p className="text-xs font-mono text-slate-500 mt-2">{panel.isGenerating ? 'Drawing...' : 'Waiting'}</p>
+                        </div>
+                    )}
+                    
+                    {/* Regeneration Overlay (Hover) - Hidden during save */}
+                    {!panel.isGenerating && !isSaving && (
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-30">
+                            <button 
+                                onClick={() => onRegeneratePanel(panel.id)}
+                                className="bg-white text-black px-4 py-2 rounded-full font-bold flex items-center gap-2 hover:scale-105 transition-transform"
+                            >
+                                <RefreshCw className="w-4 h-4" /> Redraw
+                            </button>
+                        </div>
+                    )}
+                </div>
 
-              {/* Dialogue Bubble Layer */}
-              {(panel.dialogue || panel.caption) && (
-                  <div className="absolute inset-0 pointer-events-none p-4 flex flex-col justify-between z-20">
-                     {/* Caption Top Left */}
-                     {panel.caption && (
-                        <div className="self-start bg-yellow-300 border-2 border-black px-3 py-1 shadow-[2px_2px_0px_rgba(0,0,0,1)] max-w-[80%] transform -rotate-1">
-                           <p className="font-comic text-black text-xs md:text-sm uppercase font-bold tracking-wide leading-tight">
-                              {panel.caption}
-                           </p>
-                        </div>
-                     )}
-                     
-                     {/* Dialogue Bottom Right */}
-                     {panel.dialogue && (
-                        <div className={`
-                           bg-white border-2 border-black px-4 py-2 rounded-[50%] shadow-[3px_3px_0px_rgba(0,0,0,0.5)] 
-                           max-w-[70%] self-end relative mt-auto mb-4 mr-2
-                        `}>
-                            <p className="font-bubble text-black text-xs md:text-sm font-semibold text-center leading-snug">
-                                {panel.dialogue}
+                {/* Dialogue Bubble Layer - Only show if NOT storybook mode */}
+                {!isStorybook && (panel.dialogue || panel.caption) && (
+                    <div className="absolute inset-0 pointer-events-none p-4 flex flex-col justify-between z-20">
+                        {/* Caption Top Left */}
+                        {panel.caption && (
+                            <div className="self-start bg-yellow-300 border-2 border-black px-3 py-1 shadow-[2px_2px_0px_rgba(0,0,0,1)] max-w-[80%] transform -rotate-1">
+                            <p className="font-comic text-black text-xs md:text-sm uppercase font-bold tracking-wide leading-tight">
+                                {panel.caption}
                             </p>
-                            {/* Little tail for bubble */}
-                            <div className="absolute -bottom-2 right-4 w-4 h-4 bg-white border-b-2 border-r-2 border-black transform rotate-45"></div>
-                        </div>
-                     )}
-                  </div>
-              )}
-              
-              {/* Panel Number */}
-              <div className="absolute top-0 left-0 bg-black text-white px-2 py-0.5 text-[10px] font-bold z-20">
-                 {idx + 1}
-              </div>
+                            </div>
+                        )}
+                        
+                        {/* Dialogue Bottom Right */}
+                        {panel.dialogue && (
+                            <div className={`
+                            bg-white border-2 border-black px-4 py-2 rounded-[50%] shadow-[3px_3px_0px_rgba(0,0,0,0.5)] 
+                            max-w-[70%] self-end relative mt-auto mb-4 mr-2
+                            `}>
+                                <p className="font-bubble text-black text-xs md:text-sm font-semibold text-center leading-snug">
+                                    {panel.dialogue}
+                                </p>
+                                {/* Little tail for bubble */}
+                                <div className="absolute -bottom-2 right-4 w-4 h-4 bg-white border-b-2 border-r-2 border-black transform rotate-45"></div>
+                            </div>
+                        )}
+                    </div>
+                )}
+                
+                {/* Panel Number */}
+                <div className="absolute top-0 left-0 bg-black text-white px-2 py-0.5 text-[10px] font-bold z-20">
+                    {idx + 1}
+                </div>
+                </div>
+                
+                {/* Storybook Text Mode (Below Image) */}
+                {isStorybook && (panel.caption || panel.dialogue) && (
+                    <div className="bg-transparent text-center px-4 pb-4">
+                        {panel.caption && (
+                            <p className="font-comic uppercase text-sm font-bold text-slate-500 mb-2 tracking-widest">{panel.caption}</p>
+                        )}
+                        {panel.dialogue && (
+                            <p className="font-serif text-lg md:text-xl text-slate-800 leading-relaxed italic">
+                                "{panel.dialogue}"
+                            </p>
+                        )}
+                    </div>
+                )}
             </div>
           ))}
         </div>
@@ -342,7 +402,7 @@ export const ComicCanvas: React.FC<ComicCanvasProps> = ({ panels, title, onRegen
 
                 <input 
                   value={footerText}
-                  onChange={(e) => setFooterText(e.target.value)}
+                  onChange={handleFooterTextChange}
                   className="font-comic text-black/50 text-xs md:text-sm bg-transparent border-none focus:ring-0 focus:outline-none focus:text-black uppercase tracking-wide w-full"
                   placeholder="ENTER FOOTER TEXT..."
                 />

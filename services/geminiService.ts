@@ -57,6 +57,65 @@ export const generateComicScript = async (prompt: string, panelCount: number): P
   }
 };
 
+export const translateScript = async (panels: PanelData[], targetLanguage: string): Promise<PanelData[]> => {
+  const schema: Schema = {
+    type: Type.ARRAY,
+    items: {
+      type: Type.OBJECT,
+      properties: {
+        id: { type: Type.INTEGER },
+        dialogue: { type: Type.STRING, description: `The translated dialogue in ${targetLanguage}` },
+        caption: { type: Type.STRING, description: `The translated caption in ${targetLanguage}` }
+      },
+      required: ["id", "dialogue"]
+    }
+  };
+
+  try {
+    // Only send necessary fields to save tokens and avoid confusion
+    const minimalInput = panels.map(p => ({
+      id: p.id,
+      dialogue: p.dialogue,
+      caption: p.caption
+    }));
+
+    const response = await ai.models.generateContent({
+      model: SCRIPT_MODEL,
+      contents: `Translate the following comic book dialogue and captions into ${targetLanguage}. 
+      Do NOT translate technical terms if they should remain in English, but translate the meaning.
+      Return the result as a JSON array matching the IDs.
+      
+      Input: ${JSON.stringify(minimalInput)}`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: schema
+      }
+    });
+
+    const text = response.text;
+    if (!text) throw new Error("No translation generated");
+
+    const translations = JSON.parse(text);
+    
+    // Merge translations back into original panels
+    return panels.map(panel => {
+      const translation = translations.find((t: any) => t.id === panel.id);
+      if (translation) {
+        return {
+          ...panel,
+          dialogue: translation.dialogue || panel.dialogue,
+          caption: translation.caption || panel.caption
+        };
+      }
+      return panel;
+    });
+
+  } catch (error) {
+    console.error("Translation failed:", error);
+    throw error;
+  }
+};
+
 export const generatePanelImage = async (panelDescription: string, styleContext: string): Promise<string> => {
   try {
     const fullPrompt = `Comic book panel, ${styleContext}. ${panelDescription}. High quality, detailed, masterpiece, bold lines, vibrant colors.`;
